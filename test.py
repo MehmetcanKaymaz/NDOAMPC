@@ -22,7 +22,7 @@ for i in range(N):
     ox,o_r=sim.get_obstacle_states()
     if len(ox)!=n_obstacle:
         n_obstacle=len(ox)
-        #print("number of cureent obstacle:",n_obstacle)
+        #print("number of current obstacles:",n_obstacle)
         controller=NMPC(n_obstacle=n_obstacle,obstacle_r=o_r,quadcopter_r=quadcopter_r)
     u=controller.run_controller(x0=x,ref_states=ref,obstacle_states=ox)
     sim.update(u=u)
