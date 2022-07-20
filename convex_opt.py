@@ -27,11 +27,11 @@ obstacle=np.array([[0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0],
 
 
 
-r=Variable(1)
+r=Variable()
 p=Variable((2,1))
 
 
-objective=r**2
+objective=cp.square(r)
 
 constraints=[]
 
@@ -39,7 +39,9 @@ constraints=[]
 for i in range(21):
     for j in range(21):
         if obstacle[i][j]!=0:
-            constraints+=[(p[0]-i)**2+(p[1]-j)**2-r**2<=0]
+            print((cp.square(i-p[0])+cp.square(j-p[1])).curvature)
+            constraints+=[cp.square(i-p[0])+cp.square(j-p[1])<=cp.square(r)]
+
 
 prob=Problem(Minimize(objective),constraints)
 

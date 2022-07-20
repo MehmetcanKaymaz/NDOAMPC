@@ -13,7 +13,7 @@ obstacle=np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
                    [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0],
                    [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0],
                    [0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0],
-                   [0,0,0,0,0,0,0,1,1,1,2,1,1,1,0,0,0,0,0,0,0],
+                   [0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
                    [0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0],
                    [0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],
                    [0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0],
@@ -60,25 +60,6 @@ s=np.array(s)
 x_mean=np.mean(s[:,0])
 y_mean=np.mean(s[:,1])
 
-#cycles=[[] for _ in range(n)]
-
-o1=[]
-o2=[]
-
-for si in s:
-    if si[0]>x_mean and si[1]<y_mean:
-        o1.append(si)
-    elif si[0]<x_mean and si[1]>y_mean:
-        o2.append(si)
-
-o1=np.array(o1)
-o2=np.array(o2)
-
-o1_x_mean=np.mean(o1[:,0])
-o1_y_mean=np.mean(o1[:,1])
-
-o2_x_mean=np.mean(o2[:,0])
-o2_y_mean=np.mean(o2[:,1])
 
 r=0
 
@@ -89,27 +70,23 @@ for si in s:
 
 opti=ca.Opti()
 
-X=opti.variable(3,6)
+X=opti.variable(3,2)
 
-cost=np.pi*(X[2,0]**2+X[2,1]**2+X[2,2]**2+X[2,3]**2+X[2,4]**2+X[2,5]**2)
+
+cost=0
 
 for i in range(21):
     for j in range(21):
         if obstacle[i][j] != 0:
             si=[i,j]
             opti.subject_to(ca.fmax((-(si[0]-X[0,0])**2-(si[1]-X[1,0])**2+X[2,0]**2),
-            ca.fmax((-(si[0]-X[0,1])**2-(si[1]-X[1,1])**2+X[2,1]**2),
-            ca.fmax((-(si[0]-X[0,2])**2-(si[1]-X[1,2])**2+X[2,2]**2),
-            ca.fmax((-(si[0]-X[0,3])**2-(si[1]-X[1,3])**2+X[2,3]**2),
-            ca.fmax((-(si[0]-X[0,4])**2-(si[1]-X[1,4])**2+X[2,4]**2),
-            (-(si[0]-X[0,5])**2-(si[1]-X[1,5])**2+X[2,5]**2))))))>=0)
+            (-(si[0]-X[0,1])**2-(si[1]-X[1,1])**2+X[2,1]**2))>=0)
+        else:
+            si=[i,j]
+            cost+=(X[2,0]**2+X[2,1]**2-ca.fmin(X[2,0]**2,(si[0]-X[0,0])**2+(si[1]-X[1,0])**2)-ca.fmin(X[2,1]**2,(si[0]-X[0,1])**2+(si[1]-X[1,1])**2))
 
 opti.subject_to(X[2,0]>=0)
 opti.subject_to(X[2,1]>=0)
-opti.subject_to(X[2,2]>=0)
-opti.subject_to(X[2,3]>=0)
-opti.subject_to(X[2,4]>=0)
-opti.subject_to(X[2,5]>=0)
 
 opti.minimize(cost)
 
@@ -125,15 +102,9 @@ ipopt_options = {
 
 opti.solver('ipopt', ipopt_options)
 
-o1_x_mean=x_mean
-o2_x_mean=x_mean
-o1_y_mean=y_mean
-o2_y_mean=y_mean
-r_guess=r
-
-initial_guess=np.array([[o1_x_mean,o1_x_mean,o1_x_mean,o1_x_mean,o1_x_mean,o1_x_mean],
-[o1_y_mean,o1_y_mean,o1_y_mean,o1_y_mean,o1_y_mean,o1_y_mean],
-[r_guess,r_guess,r_guess,r_guess,r_guess,r_guess]])
+initial_guess=np.array([[x_mean,x_mean],
+[y_mean,y_mean],
+[r,r]])
 
 
 opti.set_initial(X,initial_guess)
@@ -143,7 +114,7 @@ res=sol.value(X)
 print("Max R:",r)
 print("Optimization Result: {}".format(res))
 
-"""plt.rcParams["figure.figsize"] = (10,10)
+plt.rcParams["figure.figsize"] = (10,10)
 ax = plt.gca()
 ax.cla() # clear things for fresh plot
 
@@ -166,12 +137,7 @@ a2=plt.Circle((res[0,1],res[1,1]),res[2,1],color='b',fill=False)
 ax.add_patch(a1)
 ax.add_patch(a2)
 
-a1=plt.Circle((o1_x_mean,o1_y_mean),.5,color='orange')
-a2=plt.Circle((o2_x_mean,o2_y_mean),.5,color='yellow')
-ax.add_patch(a1)
-ax.add_patch(a2)
-
 ax.set_xlim((-2,23))
 ax.set_ylim((-2,23))
 ax.grid()
-plt.show()"""
+plt.show()

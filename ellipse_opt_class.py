@@ -5,13 +5,16 @@ from matplotlib.patches import Ellipse
 
 
 class EllipseGenerator:
-    def __init__(self, n=1, obstacle=None):
+    def __init__(self, n=1, obstacle=None, soft_constraints=False, only_barriers=False, equal_area_cost=False):
         self.info = "2D ellipse generator"
         self.n = n
         self.obstacle = obstacle
+        self.soft_constraints=soft_constraints
+        self.soft_theta=.1
 
         self.s,self.circle=self.get_inner_points(self.obstacle)
-        #self.s=self.get_barrier_points(self.obstacle)
+        if only_barriers:
+          self.s=self.get_barrier_points(self.obstacle)
 
         self.pose_results=None
         self.rads_results=None
@@ -24,38 +27,70 @@ class EllipseGenerator:
         self.ellipse_rads = self.opti.variable(2,self.n)
         self.ellipse_angles = self.opti.variable(self.n)
 
-        self.cost = 0
+        if self.soft_constraints:
+          self.S=self.opti.variable(self.s.shape[0])
 
+
+        self.cost = 0
+        
+        #Area cost
         for i in range(self.n):
             if self.n==1:
                 self.cost += np.pi*self.ellipse_rads[0]*self.ellipse_rads[1]
             else:
                 self.cost += np.pi*self.ellipse_rads[0,i]*self.ellipse_rads[1,i]
-
-        for i in range(self.n):
-            for j in range(self.n):
-                if i!=j:
-                    self.cost+=.2*np.pi*(self.ellipse_rads[0,i]*self.ellipse_rads[1,i]-self.ellipse_rads[0,j]*self.ellipse_rads[1,j])**2
+        
+        #Soft cost
+        if self.soft_constraints:
+          for k in range(self.s.shape[0]):
+            self.cost+=self.S[k]**2
+        
+        #Equal area cost
+        if equal_area_cost:
+          for i in range(self.n):
+              for j in range(self.n):
+                  if i!=j:
+                      self.cost+=.2*np.pi*(self.ellipse_rads[0,i]*self.ellipse_rads[1,i]-self.ellipse_rads[0,j]*self.ellipse_rads[1,j])**2
 
         if self.n==1:
+            index=0
             for si in self.s:
                 sc=np.array(si).reshape((2,1))
-                self.opti.subject_to((((sc[0]-self.ellipse_poses[0])*ca.cos(self.ellipse_angles)-
-                                       (sc[1]-self.ellipse_poses[1])*ca.sin(self.ellipse_angles))**2/self.ellipse_rads[0]**2)+
-                                     (((sc[0]-self.ellipse_poses[0])*ca.sin(self.ellipse_angles)+
-                                       (sc[1]-self.ellipse_poses[1])*ca.cos(self.ellipse_angles))**2/self.ellipse_rads[1]**2)-1<=0)            
+                if self.soft_constraints:
+                  self.opti.subject_to((((sc[0]-self.ellipse_poses[0])*ca.cos(self.ellipse_angles)-
+                                        (sc[1]-self.ellipse_poses[1])*ca.sin(self.ellipse_angles))**2/self.ellipse_rads[0]**2)+
+                                      (((sc[0]-self.ellipse_poses[0])*ca.sin(self.ellipse_angles)+
+                                        (sc[1]-self.ellipse_poses[1])*ca.cos(self.ellipse_angles))**2/self.ellipse_rads[1]**2)-1-self.soft_theta*self.S[index]<=0)   
+                else:  
+                  self.opti.subject_to((((sc[0]-self.ellipse_poses[0])*ca.cos(self.ellipse_angles)-
+                                        (sc[1]-self.ellipse_poses[1])*ca.sin(self.ellipse_angles))**2/self.ellipse_rads[0]**2)+
+                                      (((sc[0]-self.ellipse_poses[0])*ca.sin(self.ellipse_angles)+
+                                        (sc[1]-self.ellipse_poses[1])*ca.cos(self.ellipse_angles))**2/self.ellipse_rads[1]**2)-1<=0)            
+                index+=1
 
         elif self.n==2:
+            index=0
             for si in self.s:
                 sc=np.array(si).reshape((2,1))
-                self.opti.subject_to(ca.fmin((((sc[0]-self.ellipse_poses[0,0])*ca.cos(self.ellipse_angles[0])-
-                                               (sc[1]-self.ellipse_poses[1,0])*ca.sin(self.ellipse_angles[0]))**2/self.ellipse_rads[0,0]**2)+
-                                             (((sc[0]-self.ellipse_poses[0,0])*ca.sin(self.ellipse_angles[0])+
-                                               (sc[1]-self.ellipse_poses[1,0])*ca.cos(self.ellipse_angles[0]))**2/self.ellipse_rads[1,0]**2)-1,
-                                             (((sc[0]-self.ellipse_poses[0,1])*ca.cos(self.ellipse_angles[1])-
-                                               (sc[1]-self.ellipse_poses[1,1])*ca.sin(self.ellipse_angles[1]))**2/self.ellipse_rads[0,1]**2)+
-                                             (((sc[0]-self.ellipse_poses[0,1])*ca.sin(self.ellipse_angles[1])+
-                                               (sc[1]-self.ellipse_poses[1,1])*ca.cos(self.ellipse_angles[1]))**2/self.ellipse_rads[1,1]**2)-1)<=0)                    
+                if self.soft_constraints:
+                  self.opti.subject_to(ca.fmin((((sc[0]-self.ellipse_poses[0,0])*ca.cos(self.ellipse_angles[0])-
+                                                (sc[1]-self.ellipse_poses[1,0])*ca.sin(self.ellipse_angles[0]))**2/self.ellipse_rads[0,0]**2)+
+                                              (((sc[0]-self.ellipse_poses[0,0])*ca.sin(self.ellipse_angles[0])+
+                                                (sc[1]-self.ellipse_poses[1,0])*ca.cos(self.ellipse_angles[0]))**2/self.ellipse_rads[1,0]**2)-1,
+                                              (((sc[0]-self.ellipse_poses[0,1])*ca.cos(self.ellipse_angles[1])-
+                                                (sc[1]-self.ellipse_poses[1,1])*ca.sin(self.ellipse_angles[1]))**2/self.ellipse_rads[0,1]**2)+
+                                              (((sc[0]-self.ellipse_poses[0,1])*ca.sin(self.ellipse_angles[1])+
+                                                (sc[1]-self.ellipse_poses[1,1])*ca.cos(self.ellipse_angles[1]))**2/self.ellipse_rads[1,1]**2)-1)-self.soft_theta*self.S[index]<=0)  
+                else:
+                  self.opti.subject_to(ca.fmin((((sc[0]-self.ellipse_poses[0,0])*ca.cos(self.ellipse_angles[0])-
+                                                (sc[1]-self.ellipse_poses[1,0])*ca.sin(self.ellipse_angles[0]))**2/self.ellipse_rads[0,0]**2)+
+                                              (((sc[0]-self.ellipse_poses[0,0])*ca.sin(self.ellipse_angles[0])+
+                                                (sc[1]-self.ellipse_poses[1,0])*ca.cos(self.ellipse_angles[0]))**2/self.ellipse_rads[1,0]**2)-1,
+                                              (((sc[0]-self.ellipse_poses[0,1])*ca.cos(self.ellipse_angles[1])-
+                                                (sc[1]-self.ellipse_poses[1,1])*ca.sin(self.ellipse_angles[1]))**2/self.ellipse_rads[0,1]**2)+
+                                              (((sc[0]-self.ellipse_poses[0,1])*ca.sin(self.ellipse_angles[1])+
+                                                (sc[1]-self.ellipse_poses[1,1])*ca.cos(self.ellipse_angles[1]))**2/self.ellipse_rads[1,1]**2)-1)<=0)                    
+                index+=1
 
         elif self.n==3:
             for si in self.s:
