@@ -11,6 +11,7 @@ class EllipseGenerator:
         self.obstacle = obstacle
 
         self.s,self.circle=self.get_inner_points(self.obstacle)
+        #self.s=self.get_barrier_points(self.obstacle)
 
         self.pose_results=None
         self.rads_results=None
@@ -31,10 +32,10 @@ class EllipseGenerator:
             else:
                 self.cost += np.pi*self.ellipse_rads[0,i]*self.ellipse_rads[1,i]
 
-        """for i in range(self.n):
+        for i in range(self.n):
             for j in range(self.n):
                 if i!=j:
-                    self.cost+=.2*np.pi*(self.ellipse_rads[0,i]*self.ellipse_rads[1,i]-self.ellipse_rads[0,j]*self.ellipse_rads[1,j])**2"""
+                    self.cost+=.2*np.pi*(self.ellipse_rads[0,i]*self.ellipse_rads[1,i]-self.ellipse_rads[0,j]*self.ellipse_rads[1,j])**2
 
         if self.n==1:
             for si in self.s:
@@ -225,6 +226,20 @@ class EllipseGenerator:
                 r=d 
 
         return s,[x_mean,y_mean,r]
+    
+    def get_barrier_points(self,obstacle):
+        s=[]
+        barriers=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]
+        for i in range(obstacle.shape[0]):
+            for j in range(obstacle.shape[1]):
+                if obstacle[i][j]!=0:
+                    statu=True
+                    for barrier in barriers:
+                        if obstacle[i+barrier[0]][j+barrier[1]]==0:
+                            s.append([i,j])
+                            break
+        
+        return np.array(s)
 
     def visualize(self):
         plt.rcParams["figure.figsize"] = (10,10)
